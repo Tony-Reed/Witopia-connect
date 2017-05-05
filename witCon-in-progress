@@ -1,0 +1,45 @@
+#!/bin/sh
+
+# cutesie 'animation' while we wait
+progBar()
+{
+    pid=$1
+    delay=0.5
+    barstr='*'
+    while [ "$(ps a | awk '{print $1}' | grep $pid)" ]; do
+        printf "$barstr"
+        sleep $delay
+    done
+}
+
+
+## have a default city 
+default="london"
+## or choose a city 
+arg1=$1 && [ -z "$arg1" ] && arg1=$default
+
+## put the city server name into Witopia's config file
+awk -v server="$arg1" '{sub("cityName",server)};1' witopia.ovpn> $arg1.ovpn
+
+## launch openvpn in the background with the config file
+## and log the output
+echo "Trying connection vpn.$arg1.witopia.net"
+openvpn  $arg1.ovpn> session.log &
+
+## wait for Witopia on tun0
+sleep 12 &
+progBar $!
+
+# tell us about it (in green)
+echo -e -n  "\n\e[38;5;82mConnected at: "
+curl ipinfo.io/ip
+
+## clean up
+rm $arg1.ovpn
+
+## log the details
+now=$(date +"%X %x")
+ip=$(myIP)
+echo $now $arg1 $ip >> connect.log
+unset now arg1 ip
+exit 0
